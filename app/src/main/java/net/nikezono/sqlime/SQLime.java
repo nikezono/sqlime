@@ -331,12 +331,14 @@ public class SQLime extends InputMethodService
             handleBackspace();
         } else if (primaryCode == Keyboard.KEYCODE_CANCEL) {
             handleCancel();
-        } else if (primaryCode == SpecialKeyCode.KEYCODE_OPEN_MENU) {
-            // @todo Show a menu or somethin'
         } else if (primaryCode == SpecialKeyCode.KEYCODE_TOGGLE_LETTERCASE){
             handleToggleLetterCase();
         } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE) {
             handleKeyCodeModeChange();
+        } else if (primaryCode == SpecialKeyCode.KEYCODE_MOVE_CARET_LEFT) {
+            handleMoveLeft();
+        } else if (primaryCode == SpecialKeyCode.KEYCODE_MOVE_CARET_RIGHT) {
+            handleMoveRight();
         } else {
             handleCharacter(primaryCode, keyCodes);
         }
@@ -423,6 +425,21 @@ public class SQLime extends InputMethodService
         mInputView.setKeyboard(mCurKeyboard);
     }
 
+    /**
+     * カーソルを左に移動
+     */
+    @DebugLog
+    private void handleMoveLeft(){
+        getCurrentInputConnection().commitText("",-1);
+    }
+
+    /**
+     * カーソルを右に移動
+     */
+    @DebugLog
+    private void handleMoveRight(){
+        getCurrentInputConnection().commitText("",2);
+    }
 
     /**
      * @note これ、何かよくわからないしドキュメントにも説明が不十分

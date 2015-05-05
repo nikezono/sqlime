@@ -67,11 +67,12 @@
     </Row>
     
     <Row android:rowEdgeFlags="bottom">
-        <Key android:codes="-3" android:keyLabel="Done"
-                android:keyWidth="15%p" android:keyEdgeFlags="left" />
+        <Key android:codes="@integer/keycode_move_caret_left" android:keyLabel="＜"
+            android:keyWidth="15%p" android:keyEdgeFlags="left"/>
+        <Key android:codes="@integer/keycode_move_caret_right" android:keyLabel="＞"
+            android:keyWidth="15%p"/>
         <Key android:codes="-2" android:keyLabel="ABC" android:keyWidth="10%p" />
-        <Key android:codes="@integer/keycode_open_menu" android:keyLabel="MENU" android:keyWidth="10%p" />
-        <Key android:codes="32" android:keyLabel="Space" android:keyWidth="30%p"
+        <Key android:codes="32" android:keyLabel="Space" android:keyWidth="25%p"
                 android:isRepeatable="true"/>
         <Key android:codes="8230" android:keyLabel="…" android:keyWidth="15%p" />
         <Key android:codes="10" android:keyLabel="Return"
