@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <integer name="keycode_open_menu">-100</integer>
     <integer name="keycode_toggle_lettercase">-101</integer>
+    <integer name="keycode_move_caret_left">-102</integer>
+    <integer name="keycode_move_caret_right">-103</integer>
     
 </resources>

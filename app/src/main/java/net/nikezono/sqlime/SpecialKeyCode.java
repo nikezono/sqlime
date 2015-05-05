@@ -9,11 +9,13 @@ import net.nikezono.sqlime.softkeyboard.R;
  */
 public class SpecialKeyCode {
 
-    public static int KEYCODE_OPEN_MENU;
     public static int KEYCODE_TOGGLE_LETTERCASE;
+    public static int KEYCODE_MOVE_CARET_LEFT;
+    public static int KEYCODE_MOVE_CARET_RIGHT;
 
     public static void initialize(Context context) {
-        KEYCODE_OPEN_MENU = context.getResources().getInteger(R.integer.keycode_open_menu);
         KEYCODE_TOGGLE_LETTERCASE = context.getResources().getInteger(R.integer.keycode_toggle_lettercase);
+        KEYCODE_MOVE_CARET_LEFT = context.getResources().getInteger(R.integer.keycode_move_caret_left);
+        KEYCODE_MOVE_CARET_RIGHT = context.getResources().getInteger(R.integer.keycode_move_caret_right);
     }
 }
