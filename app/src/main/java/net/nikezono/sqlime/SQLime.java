@@ -71,6 +71,8 @@ public class SQLime extends InputMethodService
     
     private LatinKeyboard mCurKeyboard;
 
+    private AccelerometerPublisher mAccelerometerPublisher;
+
     public static SQLime getService(){
         return mService;
     }
@@ -83,6 +85,8 @@ public class SQLime extends InputMethodService
         SpecialKeyCode.initialize(this);
         mCandidatesAdapter = new ArrayAdapter<>(this,R.layout.candidate_text); // @todo UIスレッドに色々させすぎ
         mDictionary = new SQLite3DictionaryAccesor(this);
+
+        mAccelerometerPublisher = new AccelerometerPublisher(mService);
     }
 
     
@@ -141,7 +145,7 @@ public class SQLime extends InputMethodService
         mComposing.clear();
         mCandidatesAdapter.clear();
         updateCandidatesView(EMPTYLIST);
-
+        updateCandidatesView(EMPTYLIST);
 
         mJapaneseInputMode = false;
         
@@ -202,11 +206,18 @@ public class SQLime extends InputMethodService
         setCandidatesViewShown(false);
 
         mCurKeyboard = mQwertyKeyboard;
+
     }
     
     @Override public void onStartInputView(EditorInfo attribute, boolean restarting) {
         super.onStartInputView(attribute, restarting);
         mInputView.setKeyboard(mCurKeyboard);
+        mAccelerometerPublisher.start();
+    }
+
+    @Override public void onFinishInputView(boolean finishingInput){
+        super.onFinishInputView(finishingInput);
+        mAccelerometerPublisher.stop();
     }
 
     /**
@@ -429,7 +440,7 @@ public class SQLime extends InputMethodService
      * カーソルを左に移動
      */
     @DebugLog
-    private void handleMoveLeft(){
+    public void handleMoveLeft(){
         getCurrentInputConnection().commitText("",-1);
     }
 
@@ -437,7 +448,7 @@ public class SQLime extends InputMethodService
      * カーソルを右に移動
      */
     @DebugLog
-    private void handleMoveRight(){
+    public void handleMoveRight(){
         getCurrentInputConnection().commitText("",2);
     }
 
