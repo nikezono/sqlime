@@ -73,6 +73,11 @@ public class SQLime extends InputMethodService
 
     private AccelerometerPublisher mAccelerometerPublisher;
 
+    private int mCurrentCompletionSentenceIndex = 0;
+    private String[] mCompletionSentences = {"、", "。", "です", "Yo", "だお", "なう", ""};
+
+    private String mLastComposed = "";
+
     public static SQLime getService(){
         return mService;
     }
@@ -89,7 +94,6 @@ public class SQLime extends InputMethodService
         mAccelerometerPublisher = new AccelerometerPublisher(mService);
     }
 
-    
     /**
      * This is the point where you can do all of your UI initialization.  It
      * is called after creation and any configuration change.
@@ -281,13 +285,12 @@ public class SQLime extends InputMethodService
      * 現在アタッチしているエディタに入力を確定させるヘルパ
      */
     private void commit() {
-
-        // 入力中の文字列が存在しない場合はreturn
-        if(!mComposing.hasComposingText()) return;
-
         // モードによって区別して入力
         if(mJapaneseInputMode){
             commit(mComposing.getConvertedString());
+        }else if(!"".equals(mLastComposed)){
+            commit(mLastComposed);
+            mLastComposed = "";
         }else{
             commit(mComposing.getInputtedString());
         }
@@ -299,7 +302,7 @@ public class SQLime extends InputMethodService
      * @param candidate 入力する文字列
      */
     private void commit(String candidate) {
-        getCurrentInputConnection().commitText(candidate,1);
+        getCurrentInputConnection().commitText(candidate, 1);
     }
 
     /**
@@ -320,7 +323,8 @@ public class SQLime extends InputMethodService
      * @param text
      */
     private void compose(String text){
-        getCurrentInputConnection().setComposingText(text,1);
+        getCurrentInputConnection().setComposingText(text, 1);
+        mLastComposed = text;
     }
 
     /**
@@ -437,20 +441,92 @@ public class SQLime extends InputMethodService
     }
 
     /**
-     * カーソルを左に移動
+     * キャレットを左に移動
      */
     @DebugLog
     public void handleMoveLeft(){
-        getCurrentInputConnection().commitText("",-1);
+        //テキストが無い時はreturn
+        if(getCurrentInputConnection().getTextBeforeCursor(1, 0).length() == 0
+                && getCurrentInputConnection().getTextAfterCursor(1, 0).length() == 0){
+            return;
+        }
+        //未確定の文字がある場合はreturn
+        if(mComposing.hasComposingText()){
+            return;
+        }
+
+        moveCaretLeft();
     }
 
     /**
-     * カーソルを右に移動
+     * キャレットを右に移動
      */
     @DebugLog
     public void handleMoveRight(){
-        getCurrentInputConnection().commitText("",2);
+        //テキストが無い時はreturn
+        if(getCurrentInputConnection().getTextBeforeCursor(1, 0).length() == 0
+                && getCurrentInputConnection().getTextAfterCursor(1, 0).length() == 0){
+            return;
+        }
+
+        //文末のとき補完
+        if(getCurrentInputConnection().getTextAfterCursor(1, 0).length() == 0){
+            composeEndOfSentenceCompletion();
+        }else{
+            moveCaretRight();
+        }
+
+        if(mComposing.hasComposingText()){
+            composeEndOfSentenceCompletion();
+        }
     }
+
+    private void moveCaretLeft(){
+        getCurrentInputConnection().commitText("", -1);
+    }
+
+    private void moveCaretRight(){
+        getCurrentInputConnection().commitText("", 2);
+    }
+
+    /**
+     * 文末補完
+     */
+    @DebugLog
+    private void composeEndOfSentenceCompletion(){
+        for(String s : mCompletionSentences){
+            if(s.equals(mLastComposed)){
+                mCurrentCompletionSentenceIndex++;
+                if(mCurrentCompletionSentenceIndex == mCompletionSentences.length){
+                    mCurrentCompletionSentenceIndex = 0;
+                }
+                compose(mCompletionSentences[mCurrentCompletionSentenceIndex]);
+                commitAfterMinutes(mCompletionSentences[mCurrentCompletionSentenceIndex]);
+                return;
+            }
+        }
+        mCurrentCompletionSentenceIndex = 0;
+        compose(mCompletionSentences[mCurrentCompletionSentenceIndex]);
+        commitAfterMinutes(mCompletionSentences[mCurrentCompletionSentenceIndex]);
+    }
+
+    /**
+     * 1秒後にcommit
+     * 1秒経たないうちにcomposeEndOfSentenceCompletionが呼ばれたら停止したい
+     */
+    @Background
+    public void commitAfterMinutes(String s){
+        long start = System.currentTimeMillis();
+        //1300msec待機
+        while (System.currentTimeMillis() - start < 1300){
+            //待機中に補完文字列が変更されたらreturn
+            if(!s.equals(mLastComposed)){
+                return;
+            }
+        }
+        commit(s);
+    }
+
 
     /**
      * @note これ、何かよくわからないしドキュメントにも説明が不十分
