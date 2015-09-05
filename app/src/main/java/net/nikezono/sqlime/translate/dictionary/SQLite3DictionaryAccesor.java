@@ -35,7 +35,7 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
     }
 
     public ArrayList<CandidateWord> getWordsByYomigana(String yomigana) {
-        return getWordsByYomigana(yomigana, 15, 0);
+        return getWordsByYomigana(yomigana, 30, 0);
     }
 
     // @todo 汚い
@@ -129,7 +129,7 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
     private final static String select_statement =
             "SELECT word, left_id FROM candidate " +
             "WHERE yomigana MATCH '^?' " +
-            "ORDER BY score ASC " +
+            "ORDER BY length(word), score ASC " +
             "LIMIT $ " +
             "OFFSET #";
 
