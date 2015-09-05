@@ -65,12 +65,14 @@
                 android:keyWidth="15%p" android:keyEdgeFlags="right"
                 android:isRepeatable="true"/>
     </Row>
-    
+
     <Row android:rowEdgeFlags="bottom">
-        <Key android:codes="@integer/keycode_move_caret_left" android:keyLabel="＜"
-                android:keyWidth="15%p" android:keyEdgeFlags="left"/>
-        <Key android:codes="@integer/keycode_move_caret_right" android:keyLabel="＞"
-                android:keyWidth="15%p"/>
+        <Key android:codes="@integer/keycode_move_caret_left" android:keyLabel="←"
+                android:keyWidth="10%p" android:keyEdgeFlags="left"/>
+        <Key android:codes="@integer/keycode_move_caret_right" android:keyLabel="→"
+                android:keyWidth="10%p"/>
+        <Key android:codes="@integer/keycode_change_inputmode" android:keyLabel="a/あ"
+             android:keyWidth="10%p" />
         <Key android:codes="-2" android:keyLabel="123" android:keyWidth="10%p"/>
         <Key android:codes="32" android:keyLabel="Space"
                 android:keyWidth="20%p" android:isRepeatable="true"/>

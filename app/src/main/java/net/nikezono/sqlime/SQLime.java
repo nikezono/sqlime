@@ -48,8 +48,6 @@ import hugo.weaving.DebugLog;
 public class SQLime extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener {
 
-    static final boolean PROCESS_HARD_KEYS = true;
-
     private static SQLime mService;
     private InputMethodManager mInputMethodManager;
 
@@ -59,8 +57,8 @@ public class SQLime extends InputMethodService
     private SQLite3DictionaryAccesor mDictionary;
     
     private ComposingText mComposing = new ComposingText();
-    private static final ArrayList<String> EMPTYLIST = new ArrayList<String>();
-    private ArrayAdapter<String> mCandidatesAdapter;
+    private static final ArrayList<CandidateWord> EMPTYLIST = new ArrayList<CandidateWord>();
+    private ArrayAdapter<CandidateWord> mCandidatesAdapter;
 
     private boolean mJapaneseInputMode;
     private int mLastDisplayWidth;
@@ -71,12 +69,8 @@ public class SQLime extends InputMethodService
     
     private LatinKeyboard mCurKeyboard;
 
-    private AccelerometerPublisher mAccelerometerPublisher;
-
-    private int mCurrentCompletionSentenceIndex = 0;
-    private String[] mCompletionSentences = {"、", "。", "です", "Yo", "だお", "なう", ""};
-
     private String mLastComposed = "";
+    private CandidateWord mLastCommited;
 
     public static SQLime getService(){
         return mService;
@@ -91,7 +85,6 @@ public class SQLime extends InputMethodService
         mCandidatesAdapter = new ArrayAdapter<>(this,R.layout.candidate_text); // @todo UIスレッドに色々させすぎ
         mDictionary = new SQLite3DictionaryAccesor(this);
 
-        mAccelerometerPublisher = new AccelerometerPublisher(mService);
     }
 
     /**
@@ -107,7 +100,6 @@ public class SQLime extends InputMethodService
             if (displayWidth == mLastDisplayWidth) return;
             mLastDisplayWidth = displayWidth;
         }
-
 
         mQwertyKeyboard = new LatinKeyboard(this, R.xml.qwerty);
         mSymbolsKeyboard = new LatinKeyboard(this, R.xml.symbols);
@@ -148,7 +140,6 @@ public class SQLime extends InputMethodService
         // the underlying state of the text editor could have changed in any way.
         mComposing.clear();
         mCandidatesAdapter.clear();
-        updateCandidatesView(EMPTYLIST);
         updateCandidatesView(EMPTYLIST);
 
         mJapaneseInputMode = false;
@@ -194,6 +185,10 @@ public class SQLime extends InputMethodService
         }
 
         setCandidatesViewShown(mJapaneseInputMode);
+
+        if(mJapaneseInputMode){
+            prediction(new CandidateWord("",0)); // @note 0=文頭
+        }
     }
 
     /**
@@ -216,12 +211,10 @@ public class SQLime extends InputMethodService
     @Override public void onStartInputView(EditorInfo attribute, boolean restarting) {
         super.onStartInputView(attribute, restarting);
         mInputView.setKeyboard(mCurKeyboard);
-        mAccelerometerPublisher.start();
     }
 
     @Override public void onFinishInputView(boolean finishingInput){
         super.onFinishInputView(finishingInput);
-        mAccelerometerPublisher.stop();
     }
 
     /**
@@ -297,12 +290,17 @@ public class SQLime extends InputMethodService
 
     }
     /**
-     * commit
-     * 現在アタッチしているエディタに引数の文字列で入力を確定させるヘルパ
      * @param candidate 入力する文字列
      */
     private void commit(String candidate) {
         getCurrentInputConnection().commitText(candidate, 1);
+    }
+
+    /**
+     * @param candidate 入力するCandidateWord
+     */
+    private void commit(CandidateWord candidate) {
+        getCurrentInputConnection().commitText(candidate.getWord(), 1);
     }
 
     /**
@@ -318,13 +316,29 @@ public class SQLime extends InputMethodService
     }
 
     /**
-     * compose
-     * 現在アタッチしているエディタに引数の文字列で未確定文字列(underlined)を送るヘルパ
      * @param text
      */
     private void compose(String text){
         getCurrentInputConnection().setComposingText(text, 1);
         mLastComposed = text;
+    }
+
+    /**
+     * prediction
+     * 前回の入力結果から予測を行う
+     */
+    @Background
+    public void prediction(){
+        if(mLastCommited == null || mLastCommited.getWord().length() == 0) return;
+        prediction(mLastCommited);
+    }
+
+    /**
+     * @param seed 予測を行うCandidateWord
+     */
+    @Background
+    public void prediction(CandidateWord seed){
+        updateCandidatesView(mDictionary.getWordsByLastInput(seed));
     }
 
     /**
@@ -344,8 +358,8 @@ public class SQLime extends InputMethodService
             handleEnter();
         } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
             handleBackspace();
-        } else if (primaryCode == Keyboard.KEYCODE_CANCEL) {
-            handleCancel();
+        } else if (primaryCode == SpecialKeyCode.KEYCODE_CHANGE_INPUTMODE){
+            handleChangeInputMode();
         } else if (primaryCode == SpecialKeyCode.KEYCODE_TOGGLE_LETTERCASE){
             handleToggleLetterCase();
         } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE) {
@@ -384,7 +398,7 @@ public class SQLime extends InputMethodService
     /**
      * すべての文字キー. 直接入力モード ? Compose : Commit
      */
-    @DebugLog
+
     private void handleCharacter(int primaryCode, int[] keyCodes) {
         String inputted = String.valueOf((char) primaryCode);
         if (mJapaneseInputMode) {
@@ -397,12 +411,10 @@ public class SQLime extends InputMethodService
     }
 
     /**
-     * Doneボタン
-     * @todo これ要らない。直接入力と切り替えボタンぐらいにしよう
+     * 日本語入力モード切り替え
      */
-    private void handleCancel() {
-        commit();
-        requestHideSelf(0);
+    private void handleChangeInputMode(){
+        mJapaneseInputMode = !mJapaneseInputMode;
     }
 
     /**
@@ -471,13 +483,9 @@ public class SQLime extends InputMethodService
 
         //文末のとき補完
         if(getCurrentInputConnection().getTextAfterCursor(1, 0).length() == 0){
-            composeEndOfSentenceCompletion();
+            endOfSentencePrediction();
         }else{
             moveCaretRight();
-        }
-
-        if(mComposing.hasComposingText()){
-            composeEndOfSentenceCompletion();
         }
     }
 
@@ -493,40 +501,9 @@ public class SQLime extends InputMethodService
      * 文末補完
      */
     @DebugLog
-    private void composeEndOfSentenceCompletion(){
-        for(String s : mCompletionSentences){
-            if(s.equals(mLastComposed)){
-                mCurrentCompletionSentenceIndex++;
-                if(mCurrentCompletionSentenceIndex == mCompletionSentences.length){
-                    mCurrentCompletionSentenceIndex = 0;
-                }
-                compose(mCompletionSentences[mCurrentCompletionSentenceIndex]);
-                commitAfterMinutes(mCompletionSentences[mCurrentCompletionSentenceIndex]);
-                return;
-            }
-        }
-        mCurrentCompletionSentenceIndex = 0;
-        compose(mCompletionSentences[mCurrentCompletionSentenceIndex]);
-        commitAfterMinutes(mCompletionSentences[mCurrentCompletionSentenceIndex]);
+    private void endOfSentencePrediction(){
+        prediction(new CandidateWord("",0)); // @note 0=文末
     }
-
-    /**
-     * 1秒後にcommit
-     * 1秒経たないうちにcomposeEndOfSentenceCompletionが呼ばれたら停止したい
-     */
-    @Background
-    public void commitAfterMinutes(String s){
-        long start = System.currentTimeMillis();
-        //1300msec待機
-        while (System.currentTimeMillis() - start < 1300){
-            //待機中に補完文字列が変更されたらreturn
-            if(!s.equals(mLastComposed)){
-                return;
-            }
-        }
-        commit(s);
-    }
-
 
     /**
      * @note これ、何かよくわからないしドキュメントにも説明が不十分
@@ -537,7 +514,6 @@ public class SQLime extends InputMethodService
         commit(text.toString());
     }
 
-    @DebugLog
     @Background(id="update_candidates")
     public void updateCandidates() {
         BackgroundExecutor.cancelAll("update_candidates",true);
@@ -546,19 +522,19 @@ public class SQLime extends InputMethodService
         }
     }
 
-    @DebugLog
     @UiThread
-    public void updateCandidatesView(ArrayList<String> cands){
-        if(mJapaneseInputMode && mComposing.hasComposingText()){
-            mCandidatesAdapter.clear();
-            mCandidatesAdapter.addAll(cands);
-        }
+    public void updateCandidatesView(ArrayList<CandidateWord> cands){
+        mCandidatesAdapter.clear();
+        mCandidatesAdapter.addAll(cands);
     }
 
     @DebugLog
     @UiThread
-    public void onClickCandidate(String candidate){
+    public void onClickCandidate(Integer index){
+        CandidateWord candidate = mCandidatesAdapter.getItem(index);
         commit(candidate);
+        mLastCommited = candidate;
+        prediction();
     }
 
     /**

@@ -51,8 +51,7 @@ public class CandidatesView extends HorizontalScrollView {
         candidatesList.setOnItemClickListener(new LinearListView.OnItemClickListener() {
             @Override
             public void onItemClick(LinearListView linearListView, View view, int i, long l) {
-                String clicked = ((CandidateButton) view).getText().toString();
-                SQLime.getService().onClickCandidate(clicked);
+                SQLime.getService().onClickCandidate(i);
             }
         });
     }

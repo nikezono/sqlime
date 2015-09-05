@@ -2,8 +2,8 @@
 <net.nikezono.sqlime.view.candidates.CandidatesView_
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="@dimen/candidate_view_size"
-    android:minHeight="@dimen/candidate_view_size"
+    android:layout_height="@dimen/candidate_view_height"
+    android:minHeight="@dimen/candidate_view_height"
     >
     <com.linearlistview.LinearListView
         xmlns:app="http://schemas.android.com/apk/res-auto"

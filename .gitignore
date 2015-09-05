@@ -8,4 +8,5 @@ import-summary.txt
 app/build/
 *.csv
 *.db
+*.def
 
