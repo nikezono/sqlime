@@ -127,9 +127,9 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
     }
 
     private final static String select_statement =
-            "SELECT word, left_id FROM candidate " +
+            "SELECT DISTINCT(word), left_id FROM candidate " +
             "WHERE yomigana MATCH '^?' " +
-            "ORDER BY length(word), score ASC " +
+            "ORDER BY score/length(yomigana) DESC " +
             "LIMIT $ " +
             "OFFSET #";
 
