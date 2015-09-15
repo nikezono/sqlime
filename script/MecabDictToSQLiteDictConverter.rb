@@ -38,9 +38,9 @@ db.transaction do
     encoding: "euc-jp"
   ) do |row|
 
-    yomigana       = row[11].encode("utf-8")
+    yomigana_kata       = row[11].encode("utf-8")
 
-    if yomigana and !(/'/.match(yomigana))
+    if yomigana_kata and !(/'/.match(yomigana_kata))
       candidate      = row[0].encode("utf-8")
       left_id        = row[1].encode("utf-8").to_i
       right_id       = row[2].encode("utf-8").to_i
@@ -48,9 +48,10 @@ db.transaction do
       part_of_speech = row[4].encode("utf-8")
       pos_category1  = row[5].encode("utf-8")
       pos_category2  = row[6].encode("utf-8")
-      yomigana       = yomigana.tr('ァ-ン','ぁ-ん') # ひらがな化
+      yomigana       = yomigana_kata.tr('ァ-ン','ぁ-ん') # ひらがな化
       yomigana_separated = yomigana.split('').join(' ')
 
+      next if candidate == yomigana
 
       db.execute <<-SQL
         INSERT INTO candidate(

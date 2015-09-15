@@ -71,8 +71,6 @@
              android:keyWidth="10%p" android:keyEdgeFlags="left"/>
         <Key android:codes="@integer/keycode_move_caret_right" android:keyLabel="→"
              android:keyWidth="10%p"/>
-        <Key android:codes="@integer/keycode_change_inputmode" android:keyLabel="a/あ"
-             android:keyWidth="10%p" />
         <Key android:codes="-2" android:keyLabel="!@#" android:keyWidth="10%p" />
         <Key android:codes="32" android:keyLabel="Space"
             android:keyWidth="20%p" android:isRepeatable="true"/>
@@ -80,6 +78,8 @@
             android:keyWidth="10%p"/>
         <Key android:codes="44" android:keyLabel=","
             android:keyWidth="10%p"/>
+        <Key android:codes="45" android:keyLabel="-"
+             android:keyWidth="10%p"/>
         <Key android:codes="10" android:keyLabel="Return"
                 android:keyWidth="20%p" android:keyEdgeFlags="right"/>
     </Row>

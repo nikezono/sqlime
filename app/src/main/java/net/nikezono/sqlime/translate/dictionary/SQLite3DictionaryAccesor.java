@@ -21,10 +21,11 @@ import hugo.weaving.DebugLog;
  */
 public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
 
+    private static SQLite3DictionaryAccesor mInstance;
     private static SQLiteDatabase mDatabase;
     private ArrayList<CandidateWord> mResultSet;
 
-    private static final int DB_VERSION = 4; // @todo autoincrement
+    private static final int DB_VERSION = 6; // @todo autoincrement
     private static final String DB_NAME = "kanakanjidict.db";
 
     public SQLite3DictionaryAccesor(Context context) {
@@ -32,6 +33,12 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
         setForcedUpgrade(DB_VERSION);
         mDatabase = this.getReadableDatabase();
         mResultSet = new ArrayList<CandidateWord>();
+    }
+
+    public static SQLite3DictionaryAccesor getInstance(Context context){
+        if(context == null) throw new RuntimeException("Application context is not found.");
+        if(mInstance == null) mInstance = new SQLite3DictionaryAccesor(context);
+        return mInstance;
     }
 
     public ArrayList<CandidateWord> getWordsByYomigana(String yomigana) {
@@ -43,6 +50,13 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
     @DebugLog
     public ArrayList<CandidateWord> getWordsByYomigana(String yomigana, int limit, int offset) {
         try {
+
+            mResultSet.clear();
+            // かな/カナ
+            mResultSet.add(new CandidateWord(yomigana,0));
+            String katakana = KanaUtil.toKatakanaCase(yomigana);
+            mResultSet.add(new CandidateWord(katakana,0));
+
             mDatabase.beginTransaction();
             int length = yomigana.length();
             StringBuilder spaced = new StringBuilder();
@@ -64,7 +78,6 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
             //カーソル開始位置を先頭にする
             cursor.moveToFirst();
 
-            mResultSet.clear();
             int length2 = cursor.getCount();
             //（.moveToFirstの部分はとばして）for文を回す
             for (int i = 1; i <= length2; i++) {
@@ -73,13 +86,6 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
                 Integer leftId = cursor.getInt(1);
                 mResultSet.add(new CandidateWord(word,leftId));
                 cursor.moveToNext();
-            }
-
-            if(mResultSet.isEmpty()) {
-                mResultSet.add(new CandidateWord(yomigana,0));
-                String katakana = KanaUtil.toKatakanaCase(yomigana);
-                mResultSet.add(new CandidateWord(katakana,0));
-                mResultSet.add(new CandidateWord(KanaUtil.toHankanaCase(katakana),0));
             }
             return mResultSet;
         } catch (SQLiteException ex) {
@@ -127,8 +133,9 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
     }
 
     private final static String select_statement =
-            "SELECT DISTINCT(word), left_id FROM candidate " +
+            "SELECT word, left_id FROM candidate " +
             "WHERE yomigana MATCH '^?' " +
+            "GROUP BY word " +
             "ORDER BY score/length(yomigana) DESC " +
             "LIMIT $ " +
             "OFFSET #";
@@ -136,7 +143,7 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
     private final static String predict_statement =
             "SELECT candidate.word, candidate.left_id " +
             "FROM candidate," +
-            "(SELECT right_id AS mright_id, score AS mscore FROM matrix WHERE left_id = ? ORDER BY matrix.score ASC LIMIT 15) AS sq " +
+            "(SELECT right_id AS mright_id, score AS mscore FROM matrix WHERE left_id = ? ORDER BY matrix.score ASC LIMIT 5) AS sq " +
             "WHERE candidate.right_id = sq.mright_id " +
             "ORDER BY sq.mscore+candidate.score ASC " +
             "LIMIT $ " +

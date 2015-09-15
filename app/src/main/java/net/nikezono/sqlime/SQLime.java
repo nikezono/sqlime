@@ -54,13 +54,12 @@ public class SQLime extends InputMethodService
     private KeyboardView mInputView;
     private CandidatesView mCandidatesView;
 
-    private SQLite3DictionaryAccesor mDictionary;
+    private static SQLite3DictionaryAccesor mDictionary;
     
     private ComposingText mComposing = new ComposingText();
     private static final ArrayList<CandidateWord> EMPTYLIST = new ArrayList<CandidateWord>();
     private ArrayAdapter<CandidateWord> mCandidatesAdapter;
 
-    private boolean mJapaneseInputMode;
     private int mLastDisplayWidth;
     
     private LatinKeyboard mSymbolsKeyboard;
@@ -71,6 +70,7 @@ public class SQLime extends InputMethodService
 
     private String mLastComposed = "";
     private CandidateWord mLastCommited;
+    private Boolean mInBackground = true;
 
     public static SQLime getService(){
         return mService;
@@ -81,10 +81,8 @@ public class SQLime extends InputMethodService
         mService = this;
 
         mInputMethodManager = (InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
-        SpecialKeyCode.initialize(this);
         mCandidatesAdapter = new ArrayAdapter<>(this,R.layout.candidate_text); // @todo UIスレッドに色々させすぎ
-        mDictionary = new SQLite3DictionaryAccesor(this);
-
+        mDictionary = SQLite3DictionaryAccesor.getInstance(this);
     }
 
     /**
@@ -141,8 +139,9 @@ public class SQLime extends InputMethodService
         mComposing.clear();
         mCandidatesAdapter.clear();
         updateCandidatesView(EMPTYLIST);
+        mInBackground = false;
+        setCandidatesViewShown(true);
 
-        mJapaneseInputMode = false;
         
         // どのキーボードを初期表示にするか、エディタのattributeから判断する
         // @todo すべてのattributeを網羅していない
@@ -158,22 +157,18 @@ public class SQLime extends InputMethodService
                 
             case InputType.TYPE_CLASS_TEXT:
                 mCurKeyboard = mQwertyKeyboard;
-                mJapaneseInputMode = true;
 
                 int variation = attribute.inputType & InputType.TYPE_MASK_VARIATION;
                 if (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
                         variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) {
-                    mJapaneseInputMode = false;
                 }
                 
                 if (variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                         || variation == InputType.TYPE_TEXT_VARIATION_URI
                         || variation == InputType.TYPE_TEXT_VARIATION_FILTER) {
-                    mJapaneseInputMode = false;
                 }
                 
                 if ((attribute.inputType & InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE) != 0) {
-                    mJapaneseInputMode = true;
                 }
 
                 break;
@@ -184,11 +179,6 @@ public class SQLime extends InputMethodService
                 mCurKeyboard = mQwertyKeyboard;
         }
 
-        setCandidatesViewShown(mJapaneseInputMode);
-
-        if(mJapaneseInputMode){
-            prediction(new CandidateWord("",0)); // @note 0=文頭
-        }
     }
 
     /**
@@ -203,6 +193,7 @@ public class SQLime extends InputMethodService
         mCandidatesAdapter.clear();
         updateCandidatesView(EMPTYLIST);
         setCandidatesViewShown(false);
+        mInBackground = true;
 
         mCurKeyboard = mQwertyKeyboard;
 
@@ -278,16 +269,7 @@ public class SQLime extends InputMethodService
      * 現在アタッチしているエディタに入力を確定させるヘルパ
      */
     private void commit() {
-        // モードによって区別して入力
-        if(mJapaneseInputMode){
-            commit(mComposing.getConvertedString());
-        }else if(!"".equals(mLastComposed)){
-            commit(mLastComposed);
-            mLastComposed = "";
-        }else{
-            commit(mComposing.getInputtedString());
-        }
-
+        commit(mComposing.getConvertedString());
     }
     /**
      * @param candidate 入力する文字列
@@ -308,10 +290,7 @@ public class SQLime extends InputMethodService
      * 現在アタッチしているエディタに未確定文字列(underlined)を送るヘルパ
      */
     private void compose(){
-        // 入力中の文字列が存在しない場合はreturn
-        if(!mComposing.hasComposingText()) return;
-
-        compose(mComposing.getConvertedString());
+        compose(mComposing.getInputtedString());
         updateCandidates();
     }
 
@@ -344,7 +323,6 @@ public class SQLime extends InputMethodService
     /**
      * Helper to send a key down / key up pair to the current editor.
      */
-    @DebugLog
     private void keyDownUp(int keyEventCode) {
         getCurrentInputConnection().sendKeyEvent(
                 new KeyEvent(KeyEvent.ACTION_DOWN, keyEventCode));
@@ -358,8 +336,6 @@ public class SQLime extends InputMethodService
             handleEnter();
         } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
             handleBackspace();
-        } else if (primaryCode == SpecialKeyCode.KEYCODE_CHANGE_INPUTMODE){
-            handleChangeInputMode();
         } else if (primaryCode == SpecialKeyCode.KEYCODE_TOGGLE_LETTERCASE){
             handleToggleLetterCase();
         } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE) {
@@ -401,27 +377,15 @@ public class SQLime extends InputMethodService
 
     private void handleCharacter(int primaryCode, int[] keyCodes) {
         String inputted = String.valueOf((char) primaryCode);
-        if (mJapaneseInputMode) {
-            mComposing.input(inputted);
-            compose();
-
-        } else {
-            commit(inputted); // 直接入力
-        }
-    }
-
-    /**
-     * 日本語入力モード切り替え
-     */
-    private void handleChangeInputMode(){
-        mJapaneseInputMode = !mJapaneseInputMode;
+        mComposing.input(inputted);
+        compose();
     }
 
     /**
      * 小文字/大文字(a/A) あ->ぁ
      */
     private void handleToggleLetterCase(){
-        if(mJapaneseInputMode){
+        if(mComposing.hasComposingText()){
             String last = mComposing.getLastConverted();
             mComposing.backspace();
             mComposing.input(RomaToKanaTranslater.toKomojiDakuonHandakuon(last));
@@ -455,7 +419,6 @@ public class SQLime extends InputMethodService
     /**
      * キャレットを左に移動
      */
-    @DebugLog
     public void handleMoveLeft(){
         //テキストが無い時はreturn
         if(getCurrentInputConnection().getTextBeforeCursor(1, 0).length() == 0
@@ -473,7 +436,6 @@ public class SQLime extends InputMethodService
     /**
      * キャレットを右に移動
      */
-    @DebugLog
     public void handleMoveRight(){
         //テキストが無い時はreturn
         if(getCurrentInputConnection().getTextBeforeCursor(1, 0).length() == 0
@@ -517,15 +479,16 @@ public class SQLime extends InputMethodService
     @Background(id="update_candidates")
     public void updateCandidates() {
         BackgroundExecutor.cancelAll("update_candidates",true);
-        if(mJapaneseInputMode && mComposing.hasComposingText()) {
-            updateCandidatesView(mDictionary.getWordsByYomigana(mComposing.getConvertedString()));
-        }
+        updateCandidatesView(mDictionary.getWordsByYomigana(mComposing.getConvertedString()));
     }
 
+    @DebugLog
     @UiThread
     public void updateCandidatesView(ArrayList<CandidateWord> cands){
         mCandidatesAdapter.clear();
-        mCandidatesAdapter.addAll(cands);
+        if(!mInBackground) {
+            mCandidatesAdapter.addAll(cands);
+        }
     }
 
     @DebugLog

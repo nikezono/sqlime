@@ -4,7 +4,6 @@ import com.google.common.base.Strings;
 
 import net.nikezono.sqlime.translate.RomaToKanaTranslater;
 
-
 import hugo.weaving.DebugLog;
 
 /**
@@ -58,6 +57,9 @@ public class ComposingText {
 
     // Backspace
     public void backspace(){
+        if(mInputtedString.length() > 0){
+            mInputtedString.deleteCharAt(mInputtedString.length() - 1);
+        }
         int length = mNotConvertedAlphabets.length();
         if(length>0) {
             mNotConvertedAlphabets.deleteCharAt(length-1);
