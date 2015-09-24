@@ -104,7 +104,6 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
         try {
             mDatabase.beginTransaction();
 
-
             String query = predict_statement
                     .replace("?", seed.getLeftId().toString())
                     .replace("$", Integer.toString(limit))
@@ -134,17 +133,19 @@ public class SQLite3DictionaryAccesor extends SQLiteAssetHelper {
 
     private final static String select_statement =
             "SELECT word, left_id FROM candidate " +
+            "LEFT OUTER JOIN candidate_detail ON candidate.rowid = candidate_detail.candidate_id " +
             "WHERE yomigana MATCH '^?' " +
             "GROUP BY word " +
-            "ORDER BY score/length(yomigana) DESC " +
+            "ORDER BY candidate_detail.lscore DESC " +
             "LIMIT $ " +
             "OFFSET #";
 
     private final static String predict_statement =
-            "SELECT candidate.word, candidate.left_id " +
-            "FROM candidate," +
+            "SELECT candidate.word, candidate_detail.left_id " +
+            "FROM candidate " +
+            "LEFT OUTER JOIN candidate_detail ON candidate.rowid = candidate_detail.candidate_id, " +
             "(SELECT right_id AS mright_id, score AS mscore FROM matrix WHERE left_id = ? ORDER BY matrix.score ASC LIMIT 5) AS sq " +
-            "WHERE candidate.right_id = sq.mright_id " +
+            "WHERE candidate_detail.right_id = sq.mright_id " +
             "ORDER BY sq.mscore+candidate.score ASC " +
             "LIMIT $ " +
             "OFFSET #;";

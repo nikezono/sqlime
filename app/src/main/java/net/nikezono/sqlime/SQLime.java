@@ -206,6 +206,7 @@ public class SQLime extends InputMethodService
 
     @Override public void onFinishInputView(boolean finishingInput){
         super.onFinishInputView(finishingInput);
+        setCandidatesViewShown(false);
     }
 
     /**
